@@ -1,3 +1,4 @@
+# Detect_1
 import cv2
 import numpy as np
 
@@ -23,3 +24,192 @@ cv2.imshow('image', src)
 cv2.imshow('asd', inRange_hsv)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
+
+####################################################################################
+
+#Detect_2
+import cv2
+import numpy as np
+
+ball_color = 'green'
+
+color_dist = {'red': {'Lower': np.array([0, 60, 60]), 'Upper': np.array([6, 255, 255])},
+              'blue': {'Lower': np.array([100, 80, 46]), 'Upper': np.array([124, 255, 255])},
+              'green': {'Lower': np.array([35, 43, 35]), 'Upper': np.array([90, 255, 255])},
+              }
+
+cap = cv2.VideoCapture(0)
+cv2.namedWindow('camera', cv2.WINDOW_AUTOSIZE)
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    if ret:
+        if frame is not None:
+            gs_frame = cv2.GaussianBlur(frame, (5, 5), 0)                     # 高斯模糊
+            hsv = cv2.cvtColor(gs_frame, cv2.COLOR_BGR2HSV)                 # 转化成HSV图像
+            erode_hsv = cv2.erode(hsv, None, iterations=2)                   # 腐蚀 粗的变细
+            inRange_hsv = cv2.inRange(erode_hsv, color_dist[ball_color]['Lower'], color_dist[ball_color]['Upper'])
+            cnts = cv2.findContours(inRange_hsv.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
+
+            c = max(cnts, key=cv2.contourArea)
+            rect = cv2.minAreaRect(c)
+            box = cv2.boxPoints(rect)
+            cv2.drawContours(frame, [np.int0(box)], -1, (0, 255, 255), 2)
+
+            cv2.imshow('camera', frame)
+            cv2.waitKey(1)
+        else:
+            print("无画面")
+    else:
+        print("无法读取摄像头！")
+
+cap.release()
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+####################################################################################
+# Detect_3
+import cv2 as cv
+import numpy as np
+
+
+class ShapeAnalysis:
+    def __init__(self):
+        self.shapes = {'triangle': 0, 'rectangle': 0, 'polygons': 0, 'circles': 0}
+
+    def analysis(self, frame):
+        h, w, ch = frame.shape
+        result = np.zeros((h, w, ch), dtype=np.uint8)
+        # 二值化图像
+        print("start to detect lines...\n")
+        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        ret, binary = cv.threshold(gray, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU)
+        cv.imshow("input image", frame)
+
+        out_binary, contours, hierarchy = cv.findContours(binary, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        for cnt in range(len(contours)):
+            # 提取与绘制轮廓
+            cv.drawContours(result, contours, cnt, (0, 255, 0), 2)
+
+            # 轮廓逼近
+            epsilon = 0.01 * cv.arcLength(contours[cnt], True)
+            approx = cv.approxPolyDP(contours[cnt], epsilon, True)
+
+            # 分析几何形状
+            corners = len(approx)
+            shape_type = ""
+            if corners == 3:
+                count = self.shapes['triangle']
+                count = count+1
+                self.shapes['triangle'] = count
+                shape_type = "三角形"
+            if corners == 4:
+                count = self.shapes['rectangle']
+                count = count + 1
+                self.shapes['rectangle'] = count
+                shape_type = "矩形"
+            if corners >= 10:
+                count = self.shapes['circles']
+                count = count + 1
+                self.shapes['circles'] = count
+                shape_type = "圆形"
+            if 4 < corners < 10:
+                count = self.shapes['polygons']
+                count = count + 1
+                self.shapes['polygons'] = count
+                shape_type = "多边形"
+
+
+            # 求解中心位置
+            mm = cv.moments(contours[cnt])
+            cx = int(mm['m10'] / mm['m00'])
+            cy = int(mm['m01'] / mm['m00'])
+            cv.circle(result, (cx, cy), 3, (0, 0, 255), -1)
+
+            # 颜色分析
+            color = frame[cy][cx]
+            color_str = "(" + str(color[0]) + ", " + str(color[1]) + ", " + str(color[2]) + ")"
+
+            # 计算面积与周长
+            p = cv.arcLength(contours[cnt], True)
+            area = cv.contourArea(contours[cnt])
+            print("周长: %.3f, 面积: %.3f 颜色: %s 形状: %s "% (p, area, color_str, shape_type))
+
+
+        cv.imshow("Analysis Result", self.draw_text_info(result))
+        cv.imwrite("F:/qq file/suanfa/fujian.png", self.draw_text_info(result))
+        return self.shapes
+
+    def draw_text_info(self, image):
+        c1 = self.shapes['triangle']
+        c2 = self.shapes['rectangle']
+        c3 = self.shapes['polygons']
+        c4 = self.shapes['circles']
+        cv.putText(image, "triangle: "+str(c1), (10, 20), cv.FONT_HERSHEY_PLAIN, 1.2, (255, 0, 0), 1)
+        cv.putText(image, "rectangle: " + str(c2), (10, 40), cv.FONT_HERSHEY_PLAIN, 1.2, (255, 0, 0), 1)
+        cv.putText(image, "polygons: " + str(c3), (10, 60), cv.FONT_HERSHEY_PLAIN, 1.2, (255, 0, 0), 1)
+        cv.putText(image, "circles: " + str(c4), (10, 80), cv.FONT_HERSHEY_PLAIN, 1.2, (255, 0, 0), 1)
+        return image
+
+
+if __name__ == "__main__":
+    src = cv.imread("F:/qq file/suanfa/fujian.png")
+    ld = ShapeAnalysis()
+    ld.analysis(src)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+    
+    
+    # Detect_4
+    # USAGE
+# python count_shapes.py --image images/shapes.png
+
+# import the necessary packages
+import argparse
+import imutils
+import cv2
+
+# construct the argument parser and parse the arguments
+ap = argparse.ArgumentParser()
+ap.add_argument("-i", "--image", default='F:/qq file/suanfa/fujian.png',
+                help="path to the input image")
+args = vars(ap.parse_args())
+
+# load the input image and convert it to grayscale
+print(args["image"])
+image = cv2.imread(args["image"])
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+cv2.imshow('image', image)
+cv2.imshow('gray', gray)
+
+# blur the image (to reduce false-positive detections) and then
+# perform edge detection
+blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+edged = cv2.Canny(blurred, 50, 130)
+# cv2.imshow("blur",blurred)
+cv2.imshow('edged', edged)
+
+# find contours in the edge map and initialize the total number of
+# shapes found
+cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL,
+                        cv2.CHAIN_APPROX_SIMPLE)
+cnts = imutils.grab_contours(cnts)
+total = 0
+
+# loop over the contours one by one
+for c in cnts:
+    # if the contour area is small, then the area is likely noise, so
+    # we should ignore the contour
+    if cv2.contourArea(c) < 25:
+        continue
+
+    # otherwise, draw the contour on the image and increment the total
+    # number of shapes found
+    cv2.drawContours(image, [c], -1, (204, 0, 255), 2)
+    total += 1
+
+# show the output image and the final shape count
+print("[INFO] found {} shapes".format(total))
+cv2.imshow("Image", image)
+cv2.waitKey(0)
+    
